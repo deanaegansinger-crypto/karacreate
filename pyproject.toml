@@ -1,0 +1,12 @@
+[project]
+name = "karaoke-maker"
+version = "0.1.0"
+description = "Makes MP3+CDG karaoke tracks from songs with vocals"
+requires-python = ">=3.10"
+
+[project.scripts]
+karaoke-maker = "karaoke_maker.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

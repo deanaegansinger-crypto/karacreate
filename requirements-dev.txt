@@ -1,0 +1,4 @@
+# Enough to run the tests (no AI models needed).
+pillow>=10.1
+numpy
+pytest
