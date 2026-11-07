@@ -163,7 +163,9 @@ def cmd_prepare(args) -> Path:
 
     need_demucs = (not backing and redo_backing) or (not vocals and redo_vocals)
     if need_demucs:
-        print(f"[1/2] Removing the vocals (Demucs {args.demucs_model}). This takes a few minutes...", flush=True)
+        missing = " and ".join(n for n, have in (("no-vocals", backing), ("vocals", vocals)) if not have)
+        print(f"No lalal.ai {missing} file found next to {song.name}.")
+        print(f"[1/2] Removing the vocals with Demucs {args.demucs_model} instead. This is slower: a few minutes...", flush=True)
         tmp_vocals, tmp_music = work / "demucs vocals.wav", work / "demucs instrumental.wav"
         separate(song, tmp_vocals, tmp_music, model_name=args.demucs_model, device=args.device)
         free_memory()  # hand the vocal model's memory back before Whisper loads

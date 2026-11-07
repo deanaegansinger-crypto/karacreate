@@ -11,10 +11,10 @@ For private use with songs you own or have permission to use.
 
 ## How it works
 
-1. **Removing the vocals.** [Demucs](https://github.com/facebookresearch/demucs)
-   splits the song into the vocals and everything else. Everything else
-   becomes the backing track. If you've already split the song with
-   lalal.ai, those files are used instead (see below).
+1. **The split files.** You split the song with lalal.ai into a no-vocals
+   track (the karaoke audio) and a vocals track (see below). If they're
+   missing, [Demucs](https://github.com/facebookresearch/demucs) splits the
+   song instead, which is slower.
 2. **Finding the words.** [WhisperX](https://github.com/m-bain/whisperX)
    listens to the vocals on their own and writes down each word and when
    it's sung.
@@ -30,20 +30,21 @@ For private use with songs you own or have permission to use.
 1. Install **Python 3.12** from [python.org](https://www.python.org/downloads/windows/).
    On the first screen, tick "Add python.exe to PATH".
 2. Double-click **`Install.bat`** in this folder. It downloads the AI tools
-   (about 3 GB). If you have an NVIDIA graphics card it installs the faster
-   graphics-card version.
+   and the word-recognition models (about 5 GB in all). If you have an
+   NVIDIA graphics card it installs the faster graphics-card version.
 
 ## Where the songs come from
 
 Karaoke Maker works on files you already have. It doesn't download anything.
 Save songs with your downloader as usual, for example RealTimes in
-RealPlayer, as MP4 or MP3. Then drag them onto `Make Karaoke.bat`. Either
+RealPlayer, as MP4 or MP3. Split them with lalal.ai into the same folder,
+then drag the song onto `Make Karaoke.bat`. Either
 format works, so there's no need to convert MP4s first.
 
-## Using lalal.ai (or another vocal remover)
+## Splitting songs with lalal.ai
 
-If you split a song with lalal.ai, Karaoke Maker uses those files and
-skips its own vocal removal. That's faster and uses less memory:
+Split each song with lalal.ai first. Karaoke Maker uses those files and
+skips its own vocal removal, which is faster and uses less memory:
 
 - the **no vocals** file becomes the karaoke MP3. An MP3 is used exactly as
   it is, with no re-encoding.
@@ -75,8 +76,9 @@ own vocal removal, just drag the song on again: it picks up the new files.
 ## Making a karaoke track
 
 1. Drag one or more songs (MP4 or MP3) onto **`Make Karaoke.bat`**.
-2. Wait while it removes the vocals and finds the words. On a laptop
-   without a graphics card, a 4-minute song takes roughly 5-15 minutes.
+2. Wait while it finds the words. With lalal.ai files, a 4-minute song takes
+   roughly 3-8 minutes on a laptop without a graphics card. Without them,
+   Karaoke Maker removes the vocals too, which adds another 3-6 minutes.
    With an NVIDIA graphics card it takes about a minute. Close other
    programs first if your PC has 8 GB of memory: it needs about 3-4 GB.
 3. Notepad opens with the lyrics. Fix any wrong words and check the

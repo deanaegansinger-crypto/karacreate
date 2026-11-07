@@ -25,8 +25,9 @@ echo NVIDIA graphics card found: installing the faster graphics-card version.
 :nogpu
 
 echo.
-echo Downloading the AI models now, so the first song does not wait for them...
-"%VPY%" -c "from demucs.pretrained import get_model; get_model('htdemucs')"
+echo Downloading the word-recognition models now, about 2 GB, so the first song does not wait...
+"%VPY%" -c "from faster_whisper import WhisperModel; WhisperModel('turbo', device='cpu', compute_type='int8')"
+"%VPY%" -c "import whisperx; whisperx.load_align_model('en', 'cpu')"
 echo.
 echo All set. Drag a song onto "Make Karaoke.bat" to make a karaoke track.
 pause
