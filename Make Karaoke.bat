@@ -17,9 +17,11 @@ for %%F in (%*) do (
 rem Step 2: check the lyrics of each song, then make its MP3+CDG.
 for %%F in (%*) do (
   echo.
-  echo === Check the lyrics for %%~nxF, then save and close Notepad ===
-  notepad "%%~dpnF (karaoke work)\lyrics.txt"
-  "%PY%" -m karaoke_maker build "%%~dpnF (karaoke work)" || goto failed
+  if exist "%%~dpnF (karaoke work)\lyrics.txt" (
+    echo === Check the lyrics for %%~nxF, then save and close Notepad ===
+    notepad "%%~dpnF (karaoke work)\lyrics.txt"
+    "%PY%" -m karaoke_maker build "%%~dpnF (karaoke work)" || goto failed
+  )
 )
 
 echo.

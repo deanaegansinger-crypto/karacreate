@@ -13,7 +13,8 @@ For private use with songs you own or have permission to use.
 
 1. **Removing the vocals.** [Demucs](https://github.com/facebookresearch/demucs)
    splits the song into the vocals and everything else. Everything else
-   becomes the backing track.
+   becomes the backing track. If you've already split the song with
+   lalal.ai, those files are used instead (see below).
 2. **Finding the words.** [WhisperX](https://github.com/m-bain/whisperX)
    listens to the vocals on their own and writes down each word and when
    it's sung.
@@ -39,6 +40,38 @@ Save songs with your downloader as usual, for example RealTimes in
 RealPlayer, as MP4 or MP3. Then drag them onto `Make Karaoke.bat`. Either
 format works, so there's no need to convert MP4s first.
 
+## Using lalal.ai (or another vocal remover)
+
+If you split a song with lalal.ai, Karaoke Maker uses those files and
+skips its own vocal removal. That's faster and uses less memory:
+
+- the **no vocals** file becomes the karaoke MP3. An MP3 is used exactly as
+  it is, with no re-encoding.
+- the **vocals** file is what the word timings come from. Clean vocals give
+  the best timing.
+
+Put lalal.ai's files in the same folder as the song (the version with the
+singing), keeping the names lalal.ai gives them, for example:
+
+```
+Mustang Sally.mp4                              <- drag this one
+Mustang Sally_no_vocals_split_by_lalalai.mp3
+Mustang Sally_vocals_split_by_lalalai.mp3
+```
+
+They're found by name: the song's name followed by "no vocals" /
+"instrumental", or "vocals". If you only have the no-vocals file, Karaoke
+Maker still removes the vocals itself to time the lyrics. Dragging all
+three files onto `Make Karaoke.bat` is fine: the split files are spotted
+and skipped.
+
+Split the same file you drag in, or one exactly the same length. If the
+lalal.ai file was trimmed at the start, the lyrics will be out of time,
+and Karaoke Maker warns you if the lengths differ.
+
+If you add lalal.ai files after already making a song with Karaoke Maker's
+own vocal removal, just drag the song on again: it picks up the new files.
+
 ## Making a karaoke track
 
 1. Drag one or more songs (MP4 or MP3) onto **`Make Karaoke.bat`**.
@@ -48,7 +81,9 @@ format works, so there's no need to convert MP4s first.
    programs first if your PC has 8 GB of memory: it needs about 3-4 GB.
 3. Notepad opens with the lyrics. Fix any wrong words and check the
    title and artist at the top. Then save and close Notepad.
-4. The MP3 and CDG appear next to the song. If you need to fix the lyrics
+4. The MP3 and CDG appear next to the song, named `Artist - Title`. If
+   that's already your song's own name, `(Karaoke)` is added so it's never
+   overwritten. If you need to fix the lyrics
    again, edit `lyrics.txt` in the song's `(karaoke work)` folder and drag
    the song onto `Make Karaoke.bat` again. The slow steps are skipped the
    second time.
@@ -75,6 +110,7 @@ Useful options:
 
 | Option | What it does |
 |---|---|
+| `--backing FILE` / `--vocals FILE` | use split files with any names (see lalal.ai above) |
 | `--text-size small/large/huge` | 8, 5 or 4 lines on screen (default large) |
 | `--sung-color "#ffcc00"` | the colour words turn when sung (default blue) |
 | `--unsung-color "#ffffff"` | the colour of words still to sing (default white) |

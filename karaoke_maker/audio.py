@@ -52,8 +52,11 @@ def wav_duration(path: Path) -> float:
         return f.getnframes() / f.getframerate()
 
 
-def save_mp3(src: Path, dest: Path, title: str = "", artist: str = "", bitrate: str = "192k") -> None:
-    cmd = [ffmpeg_exe(), "-nostdin", "-v", "error", "-y", "-i", str(src), "-codec:a", "libmp3lame", "-b:a", bitrate]
+def save_mp3(src: Path, dest: Path, title: str = "", artist: str = "", bitrate: str = "192k", copy: bool = False) -> None:
+    """Encode src as MP3, or with copy=True take an MP3's audio unchanged
+    and just set its title and artist."""
+    codec = ["-map", "0:a", "-codec:a", "copy", "-map_metadata", "-1"] if copy else ["-codec:a", "libmp3lame", "-b:a", bitrate]
+    cmd = [ffmpeg_exe(), "-nostdin", "-v", "error", "-y", "-i", str(src), *codec]
     if title:
         cmd += ["-metadata", f"title={title}"]
     if artist:

@@ -67,27 +67,117 @@ def read_header(lyrics_path: Path) -> dict[str, str]:
     return out
 
 
+AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac", ".opus", ".mp4", ".mkv", ".webm"}
+# What may follow the song's name in a split file's name, and nothing else.
+_EXTRA = r"(?: (?:split by lalal ?ai|lalal ?ai|stems?|only|isolated|version|track|\d+))*"
+BACKING_WORDS = re.compile(_EXTRA + r" (?:no vocals?|without vocals?|instrumental|backing(?: track)?|minus one|music)" + _EXTRA)
+VOCAL_WORDS = re.compile(_EXTRA + r" (?:vocals?|voice|acapella|a cappella|lead vocals?)" + _EXTRA)
+
+
+def _plain(name: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[_\-.()\[\]]+", " ", name.lower())).strip()
+
+
+def find_stems(song: Path) -> tuple[Path | None, Path | None]:
+    """A backing track and a vocals file split from this song by another
+    program (such as lalal.ai's 'Song_no_vocals_split_by_lalalai.mp3' and
+    'Song_vocals_split_by_lalalai.mp3'), if they sit next to it."""
+    base = _plain(song.stem)
+    backing = vocals = None
+    for f in sorted(song.parent.iterdir()):
+        if f == song or not f.is_file() or f.suffix.lower() not in AUDIO_EXTS:
+            continue
+        name = _plain(f.stem)
+        if not name.startswith(base) or name == base:
+            continue
+        rest = name[len(base):]
+        if not rest.startswith(" "):
+            continue  # "Song2" is a different song to "Song"
+        if BACKING_WORDS.fullmatch(rest):
+            backing = backing or f
+        elif VOCAL_WORDS.fullmatch(rest):
+            vocals = vocals or f
+    return backing, vocals
+
+
+def split_from(path: Path) -> Path | None:
+    """The song this file was split from, if it's another file's backing
+    track or vocals sitting next to it."""
+    for f in sorted(path.parent.iterdir()):
+        if f != path and f.is_file() and f.suffix.lower() in AUDIO_EXTS and path in find_stems(f):
+            return f
+    return None
+
+
+def _use_file(src: Path, dest: Path, label: str, song_seconds: float) -> None:
+    from .audio import load_audio, save_wav
+
+    audio = load_audio(src)
+    seconds = audio.shape[1] / 44100
+    if abs(seconds - song_seconds) > 1.0:
+        print(f"  Warning: the {label} ({seconds:.1f}s) isn't the same length as the song ({song_seconds:.1f}s).\n"
+              f"  If it was trimmed, the lyrics will be out of time with it.")
+    save_wav(dest, audio)
+
+
 def cmd_prepare(args) -> Path:
-    from .audio import free_memory, separate
+    from .audio import free_memory, load_audio, separate
     from .lyrics import draft_lines, load_words, read_lyrics, save_words
     from .transcribe import transcribe
 
     song = Path(args.song).resolve()
     if not song.is_file():
         sys.exit(f"File not found: {song}")
+    parent = split_from(song)
+    if parent and not args.work:
+        print(f"Skipping {song.name}: it's the split backing or vocals of {parent.name}, which uses it.")
+        return None
     work = Path(args.work).resolve() if args.work else work_dir_for(song)
     work.mkdir(parents=True, exist_ok=True)
     title, artist = guess_title_artist(song.stem)
-    (work / INFO).write_text(json.dumps({"source": str(song), "title": title, "artist": artist}, indent=1), encoding="utf-8")
 
-    if args.redo or not (work / MUSIC).exists() or not (work / VOCALS).exists():
+    found_backing, found_vocals = find_stems(song)
+    backing = Path(args.backing).resolve() if args.backing else found_backing
+    vocals = Path(args.vocals).resolve() if args.vocals else found_vocals
+    for p in (backing, vocals):
+        if p and not p.is_file():
+            sys.exit(f"File not found: {p}")
+
+    old = json.loads((work / INFO).read_text(encoding="utf-8")) if (work / INFO).exists() else {}
+    info = {"source": str(song), "title": title, "artist": artist,
+            "backing": str(backing) if backing else None, "vocals": str(vocals) if vocals else None}
+    # Starting again for a step if its input file changed (say, lalal.ai
+    # files added after a first run with Demucs).
+    redo_backing = args.redo or not (work / MUSIC).exists() or old.get("backing") != info["backing"]
+    redo_vocals = args.redo or not (work / VOCALS).exists() or old.get("vocals") != info["vocals"]
+    redo_words = args.redo or redo_vocals or not (work / WORDS).exists()
+    (work / INFO).write_text(json.dumps(info, indent=1), encoding="utf-8")
+
+    song_seconds = load_audio(song, rate=8000, channels=1).shape[1] / 8000 if (backing or vocals) else 0.0
+    if backing and redo_backing:
+        print(f"Using your backing track: {backing.name}")
+        _use_file(backing, work / MUSIC, "backing track", song_seconds)
+    if vocals and redo_vocals:
+        print(f"Using your vocals: {vocals.name}")
+        _use_file(vocals, work / VOCALS, "vocals file", song_seconds)
+
+    need_demucs = (not backing and redo_backing) or (not vocals and redo_vocals)
+    if need_demucs:
         print(f"[1/2] Removing the vocals (Demucs {args.demucs_model}). This takes a few minutes...", flush=True)
-        separate(song, work / VOCALS, work / MUSIC, model_name=args.demucs_model, device=args.device)
+        tmp_vocals, tmp_music = work / "demucs vocals.wav", work / "demucs instrumental.wav"
+        separate(song, tmp_vocals, tmp_music, model_name=args.demucs_model, device=args.device)
         free_memory()  # hand the vocal model's memory back before Whisper loads
-    else:
+        for tmp, final, keep_yours in ((tmp_vocals, work / VOCALS, vocals), (tmp_music, work / MUSIC, backing)):
+            if keep_yours:
+                tmp.unlink()  # yours is used instead
+            else:
+                tmp.replace(final)
+    elif not (backing and vocals):
         print("[1/2] Vocals already removed: skipping.")
+    else:
+        print("[1/2] Using your split files: no need to remove the vocals.")
 
-    if args.redo or not (work / WORDS).exists():
+    if redo_words:
         print(f"[2/2] Listening for the words (Whisper {args.whisper_model})...", flush=True)
         words = transcribe(work / VOCALS, model_name=args.whisper_model, language=args.language, device=args.device)
         save_words(work / WORDS, words)
@@ -132,9 +222,17 @@ def cmd_build(args) -> list[Path]:
     out_dir = Path(args.out_dir).resolve() if args.out_dir else (Path(info["source"]).parent if info.get("source") else work.parent)
     out_dir.mkdir(parents=True, exist_ok=True)
     base = safe_filename(f"{artist} - {title}" if artist else title or work.name)
+    inputs = {Path(p).resolve() for p in (info.get("source"), info.get("backing"), info.get("vocals")) if p}
+    if (out_dir / f"{base}.mp3").resolve() in inputs:
+        base += " (Karaoke)"  # never write over the song you started from
     mp3, cdg_path, lrc = (out_dir / f"{base}.{ext}" for ext in ("mp3", "cdg", "lrc"))
     print("Making the MP3...", flush=True)
-    save_mp3(work / MUSIC, mp3, title=title, artist=artist)
+    backing = info.get("backing")
+    if backing and Path(backing).suffix.lower() == ".mp3" and Path(backing).is_file():
+        # Already an MP3 (lalal.ai's are): keep it as it is, no re-encoding.
+        save_mp3(Path(backing), mp3, title=title, artist=artist, copy=True)
+    else:
+        save_mp3(work / MUSIC, mp3, title=title, artist=artist)
     cdg_path.write_bytes(cdg)
     outputs = [mp3, cdg_path]
     if args.lrc:
@@ -149,8 +247,10 @@ def cmd_build(args) -> list[Path]:
 
 
 def cmd_make(args) -> None:
-    args.work = str(cmd_prepare(args))
-    cmd_build(args)
+    work = cmd_prepare(args)
+    if work:
+        args.work = str(work)
+        cmd_build(args)
 
 
 def cmd_preview(args) -> None:
@@ -173,6 +273,8 @@ def main(argv: list[str] | None = None) -> None:
     def prepare_opts(sp):
         sp.add_argument("song", help="MP4, MP3 or any audio/video file of the song with vocals")
         sp.add_argument("--work", help="folder for the in-between files (default: next to the song)")
+        sp.add_argument("--backing", help="a backing track (vocals removed) from another program, e.g. lalal.ai, to use as the karaoke audio")
+        sp.add_argument("--vocals", help="the vocals on their own from another program, e.g. lalal.ai, to time the lyrics from")
         sp.add_argument("--lyrics", help="a text file of the lyrics, one sung line per line, to use instead of the recognised words")
         sp.add_argument("--whisper-model", default="turbo", help="Whisper model: turbo (default), large-v3 (slower, needs more memory), small (fastest)")
         sp.add_argument("--language", help="the song's language code, e.g. en (default: detect)")

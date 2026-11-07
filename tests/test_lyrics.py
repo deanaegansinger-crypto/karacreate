@@ -57,3 +57,53 @@ def test_title_and_artist_from_youtube_names():
     assert guess_title_artist("Adele - Hello (Official Lyric Video)") == ("Hello", "Adele")
     assert guess_title_artist("Queen - Bohemian Rhapsody [Lyrics] [HD]") == ("Bohemian Rhapsody", "Queen")
     assert guess_title_artist("Some Song lyrics") == ("Some Song", "")
+
+
+def test_finds_files_split_by_another_program(tmp_path):
+    from karaoke_maker.cli import find_stems
+
+    song = tmp_path / "Mustang Sally (Lyrics).mp4"
+    for name in [song.name, "Mustang Sally (Lyrics)_no_vocals_split_by_lalalai.mp3",
+                 "Mustang Sally (Lyrics)_vocals_split_by_lalalai.mp3", "Other Song_vocals.mp3", "notes.txt"]:
+        (tmp_path / name).write_bytes(b"")
+    backing, vocals = find_stems(song)
+    assert backing.name == "Mustang Sally (Lyrics)_no_vocals_split_by_lalalai.mp3"
+    assert vocals.name == "Mustang Sally (Lyrics)_vocals_split_by_lalalai.mp3"
+
+
+def test_other_names_for_split_files(tmp_path):
+    from karaoke_maker.cli import find_stems
+
+    song = tmp_path / "Song.mp3"
+    for name in ["Song.mp3", "Song - Instrumental.wav", "Song (Vocals).flac"]:
+        (tmp_path / name).write_bytes(b"")
+    backing, vocals = find_stems(song)
+    assert (backing.name, vocals.name) == ("Song - Instrumental.wav", "Song (Vocals).flac")
+
+
+def test_nothing_found_when_there_are_no_split_files(tmp_path):
+    from karaoke_maker.cli import find_stems
+
+    song = tmp_path / "Song.mp4"
+    for name in ["Song.mp4", "Song.mp3", "Song Two_vocals.mp3"]:
+        (tmp_path / name).write_bytes(b"")
+    assert find_stems(song) == (None, None)
+
+
+def test_split_files_know_which_song_they_belong_to(tmp_path):
+    from karaoke_maker.cli import split_from
+
+    names = ["Song.mp4", "Song_no_vocals_split_by_lalalai.mp3", "Song_vocals_split_by_lalalai.mp3"]
+    for name in names:
+        (tmp_path / name).write_bytes(b"")
+    assert split_from(tmp_path / names[0]) is None
+    assert split_from(tmp_path / names[1]).name == "Song.mp4"
+    assert split_from(tmp_path / names[2]).name == "Song.mp4"
+
+
+def test_own_karaoke_output_is_not_taken_for_a_split_file(tmp_path):
+    from karaoke_maker.cli import find_stems
+
+    for name in ["Song.mp3", "Song (Karaoke).mp3"]:
+        (tmp_path / name).write_bytes(b"")
+    assert find_stems(tmp_path / "Song.mp3") == (None, None)
