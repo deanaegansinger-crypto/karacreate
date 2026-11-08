@@ -60,18 +60,21 @@ Put lalal.ai's files in the same folder as the song (the version with the
 singing), keeping the names lalal.ai gives them, for example:
 
 ```
-Mustang Sally.mp4                              <- drag this one
+Mustang Sally.mp4
 Mustang Sally_no_vocals_split_by_lalalai.mp3
 Mustang Sally_vocals_split_by_lalalai.mp3
 ```
 
-They're found by name: the song's name followed by "no vocals" /
-"instrumental", or "vocals". If you only have the no-vocals file, Karaoke
-Maker still removes the vocals itself to time the lyrics. Dragging all
-three files onto `Make Karaoke.bat` is fine: the split files are spotted
-and skipped.
+Then drag any of them onto `Make Karaoke.bat`, or all three: each song is
+only done once. Files are matched by name. lalal.ai shortens long names
+("...Cover by B._vocals_split_by_lalalai.mp3"), which is fine.
 
-Split the same file you drag in, or one exactly the same length. If the
+- **Both lalal.ai files are enough on their own.** The original song is
+  then only used to check that the lengths match.
+- With only the no-vocals file, the original song must be there too.
+  Karaoke Maker removes the vocals from it itself to time the lyrics.
+
+Split the same song file you have in the folder, or one exactly the same length. If the
 lalal.ai file was trimmed at the start, the lyrics will be out of time,
 and Karaoke Maker warns you if the lengths differ.
 
@@ -80,7 +83,8 @@ own vocal removal, just drag the song on again: it picks up the new files.
 
 ## Making a karaoke track
 
-1. Drag one or more songs (MP4 or MP3) onto **`Make Karaoke.bat`**.
+1. Drag one or more songs onto **`Make Karaoke.bat`**: the song, its lalal.ai
+   files, or all of them, for as many songs as you like.
 2. Wait while it finds the words. With lalal.ai files, a 4-minute song takes
    roughly 3-8 minutes on a laptop without a graphics card. Without them,
    Karaoke Maker removes the vocals too, which adds another 3-6 minutes.

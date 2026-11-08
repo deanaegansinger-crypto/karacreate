@@ -18,6 +18,11 @@ def transcribe(vocals: Path, model_name: str = "turbo", language: str | None = N
     from .models import avoid_symlinks
 
     avoid_symlinks()
+    import warnings
+
+    # pyannote's own audio decoder isn't used (the audio is passed in
+    # already decoded), so its warning about it isn't wanted.
+    warnings.filterwarnings("ignore", message=".*torchcodec.*")
     import whisperx
 
     device = pick_device(device)

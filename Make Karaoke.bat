@@ -8,27 +8,13 @@ echo "%~dp0" | find /i "\AppData\Local\Temp\" >nul && goto inzip
 if not exist "%PY%" goto noinstall
 if "%~1"=="" goto nofile
 
-rem Step 1 for every song first: the slow part, and it needs no one watching.
-for %%F in (%*) do (
-  echo.
-  echo === %%~nxF ===
-  "%PY%" -m karaoke_maker prepare "%%~fF" || goto failed
-)
-
-rem Step 2: check the lyrics of each song, then make its MP3+CDG.
-for %%F in (%*) do (
-  echo.
-  if exist "%%~dpnF (karaoke work)\lyrics.txt" (
-    echo === Check the lyrics for %%~nxF, then save and close Notepad ===
-    notepad "%%~dpnF (karaoke work)\lyrics.txt"
-    "%PY%" -m karaoke_maker build "%%~dpnF (karaoke work)" || goto failed
-  )
-)
-
+rem Drag in songs, their lalal.ai files, or both: each song is done once.
+rem The slow part runs for every song first; then each song's lyrics open
+rem in Notepad in turn, and its MP3 and CDG are made when Notepad closes.
+"%PY%" -m karaoke_maker batch %*
 echo.
-echo All done. The MP3 and CDG files are next to your songs.
 pause
-exit /b 0
+exit /b
 
 :inzip
 echo This is running from inside the zip file. Extract the zip first ^(right-click it,
@@ -43,12 +29,6 @@ pause
 exit /b 1
 
 :nofile
-echo Drag one or more songs, MP4 or MP3, onto "Make Karaoke.bat".
-pause
-exit /b 1
-
-:failed
-echo.
-echo Something went wrong: see the messages above.
+echo Drag songs onto "Make Karaoke.bat": the song, its lalal.ai files, or all of them.
 pause
 exit /b 1

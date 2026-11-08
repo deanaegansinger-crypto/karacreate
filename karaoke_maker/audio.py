@@ -91,6 +91,9 @@ def free_memory() -> None:
 
 def separate(path: Path, vocals_out: Path, music_out: Path, model_name: str = "htdemucs", device: str = "auto") -> None:
     """Split a song into its vocals and everything else (the backing track)."""
+    from .models import avoid_symlinks
+
+    avoid_symlinks()
     import torch
     from demucs.apply import apply_model
     from demucs.pretrained import get_model

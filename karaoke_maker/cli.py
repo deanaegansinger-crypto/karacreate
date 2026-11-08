@@ -4,6 +4,7 @@
                  and write a lyrics.txt to check
   build WORKDIR  make the MP3+CDG from the (corrected) lyrics.txt
   make SONG      both in one go, without stopping to check the lyrics
+  batch FILES    any number of songs, checking each one's lyrics in turn
   preview CDG    save a picture of the karaoke screen at a given time
 """
 
@@ -16,7 +17,8 @@ import shutil
 import sys
 from pathlib import Path
 
-WORK_SUFFIX = " (karaoke work)"
+from .songs import WORK_SUFFIX, Song, find_song  # noqa: F401
+
 VOCALS = "vocals.wav"
 MUSIC = "instrumental.wav"
 WORDS = "words.json"
@@ -41,7 +43,7 @@ JUNK = re.compile(
 
 
 def guess_title_artist(stem: str) -> tuple[str, str]:
-    name = JUNK.sub("", stem).replace("_", " ").strip(" -")
+    name = JUNK.sub("", stem).replace("_", " ").replace(" – ", " - ").replace(" — ", " - ").strip(" -.")
     name = re.sub(r"\s+", " ", name)
     if " - " in name:
         artist, title = name.split(" - ", 1)
@@ -53,10 +55,6 @@ def safe_filename(name: str) -> str:
     return re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", name).strip(" .") or "karaoke"
 
 
-def work_dir_for(song: Path) -> Path:
-    return song.with_name(song.stem + WORK_SUFFIX)
-
-
 def read_header(lyrics_path: Path) -> dict[str, str]:
     """'# Title: ...' and '# Artist: ...' lines at the top of lyrics.txt."""
     out = {}
@@ -65,48 +63,6 @@ def read_header(lyrics_path: Path) -> dict[str, str]:
         if m:
             out[m.group(1).lower()] = m.group(2).strip()
     return out
-
-
-AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac", ".opus", ".mp4", ".mkv", ".webm"}
-# What may follow the song's name in a split file's name, and nothing else.
-_EXTRA = r"(?: (?:split by lalal ?ai|lalal ?ai|stems?|only|isolated|version|track|\d+))*"
-BACKING_WORDS = re.compile(_EXTRA + r" (?:no vocals?|without vocals?|instrumental|backing(?: track)?|minus one|music)" + _EXTRA)
-VOCAL_WORDS = re.compile(_EXTRA + r" (?:vocals?|voice|acapella|a cappella|lead vocals?)" + _EXTRA)
-
-
-def _plain(name: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[_\-.()\[\]]+", " ", name.lower())).strip()
-
-
-def find_stems(song: Path) -> tuple[Path | None, Path | None]:
-    """A backing track and a vocals file split from this song by another
-    program (such as lalal.ai's 'Song_no_vocals_split_by_lalalai.mp3' and
-    'Song_vocals_split_by_lalalai.mp3'), if they sit next to it."""
-    base = _plain(song.stem)
-    backing = vocals = None
-    for f in sorted(song.parent.iterdir()):
-        if f == song or not f.is_file() or f.suffix.lower() not in AUDIO_EXTS:
-            continue
-        name = _plain(f.stem)
-        if not name.startswith(base) or name == base:
-            continue
-        rest = name[len(base):]
-        if not rest.startswith(" "):
-            continue  # "Song2" is a different song to "Song"
-        if BACKING_WORDS.fullmatch(rest):
-            backing = backing or f
-        elif VOCAL_WORDS.fullmatch(rest):
-            vocals = vocals or f
-    return backing, vocals
-
-
-def split_from(path: Path) -> Path | None:
-    """The song this file was split from, if it's another file's backing
-    track or vocals sitting next to it."""
-    for f in sorted(path.parent.iterdir()):
-        if f != path and f.is_file() and f.suffix.lower() in AUDIO_EXTS and path in find_stems(f):
-            return f
-    return None
 
 
 def _use_file(src: Path, dest: Path, label: str, song_seconds: float) -> None:
@@ -120,31 +76,48 @@ def _use_file(src: Path, dest: Path, label: str, song_seconds: float) -> None:
     save_wav(dest, audio)
 
 
+def song_from_args(args) -> Song:
+    """The song to work on: from the dragged-in file, plus any --backing and
+    --vocals given."""
+    path = Path(args.song).resolve()
+    if not path.is_file():
+        sys.exit(f"File not found: {path}")
+    song = find_song(path)
+    if song is None:
+        sys.exit(f"{path.name} is already a finished karaoke track (it has a .cdg with it).")
+    if getattr(args, "backing", None):
+        song.backing = Path(args.backing).resolve()
+    if getattr(args, "vocals", None):
+        song.vocals = Path(args.vocals).resolve()
+    return song
+
+
 def cmd_prepare(args) -> Path:
+    return prepare_song(song_from_args(args), args)
+
+
+def prepare_song(song: Song, args) -> Path:
     from .audio import free_memory, load_audio, separate
     from .lyrics import draft_lines, load_words, read_lyrics, save_words
     from .transcribe import transcribe
 
-    song = Path(args.song).resolve()
-    if not song.is_file():
-        sys.exit(f"File not found: {song}")
-    parent = split_from(song)
-    if parent and not args.work:
-        print(f"Skipping {song.name}: it's the split backing or vocals of {parent.name}, which uses it.")
-        return None
-    work = Path(args.work).resolve() if args.work else work_dir_for(song)
-    work.mkdir(parents=True, exist_ok=True)
-    title, artist = guess_title_artist(song.stem)
-
-    found_backing, found_vocals = find_stems(song)
-    backing = Path(args.backing).resolve() if args.backing else found_backing
-    vocals = Path(args.vocals).resolve() if args.vocals else found_vocals
+    backing, vocals, original = song.backing, song.vocals, song.original
     for p in (backing, vocals):
         if p and not p.is_file():
             sys.exit(f"File not found: {p}")
+    if not original and not (backing and vocals):
+        have = backing or vocals
+        sys.exit(f"Only found {have.name}. Put lalal.ai's other file (the "
+                 f"{'vocals' if backing else 'no vocals'} one) next to it, or the original song with the singing.")
+    for label, p in (("Song", original), ("Backing track", backing), ("Vocals", vocals)):
+        if p:
+            print(f"  {label}: {p.name}")
+    work = Path(args.work).resolve() if getattr(args, "work", None) else song.work
+    work.mkdir(parents=True, exist_ok=True)
+    title, artist = guess_title_artist(song.name)
 
     old = json.loads((work / INFO).read_text(encoding="utf-8")) if (work / INFO).exists() else {}
-    info = {"source": str(song), "title": title, "artist": artist,
+    info = {"source": str(original or backing), "folder": str(song.folder), "title": title, "artist": artist,
             "backing": str(backing) if backing else None, "vocals": str(vocals) if vocals else None}
     # Starting again for a step if its input file changed (say, lalal.ai
     # files added after a first run with Demucs).
@@ -153,21 +126,21 @@ def cmd_prepare(args) -> Path:
     redo_words = args.redo or redo_vocals or not (work / WORDS).exists()
     (work / INFO).write_text(json.dumps(info, indent=1), encoding="utf-8")
 
-    song_seconds = load_audio(song, rate=8000, channels=1).shape[1] / 8000 if (backing or vocals) else 0.0
+    # Everything is lined up against the original, or the vocals without one.
+    reference = original or vocals
+    ref_seconds = load_audio(reference, rate=8000, channels=1).shape[1] / 8000 if (backing or vocals) else 0.0
     if backing and redo_backing:
-        print(f"Using your backing track: {backing.name}")
-        _use_file(backing, work / MUSIC, "backing track", song_seconds)
+        _use_file(backing, work / MUSIC, "backing track", ref_seconds)
     if vocals and redo_vocals:
-        print(f"Using your vocals: {vocals.name}")
-        _use_file(vocals, work / VOCALS, "vocals file", song_seconds)
+        _use_file(vocals, work / VOCALS, "vocals file", ref_seconds)
 
     need_demucs = (not backing and redo_backing) or (not vocals and redo_vocals)
     if need_demucs:
         missing = " and ".join(n for n, have in (("no-vocals", backing), ("vocals", vocals)) if not have)
-        print(f"No lalal.ai {missing} file found next to {song.name}.")
+        print(f"No lalal.ai {missing} file found next to {original.name}.")
         print(f"[1/2] Removing the vocals with Demucs {args.demucs_model} instead. This is slower: a few minutes...", flush=True)
         tmp_vocals, tmp_music = work / "demucs vocals.wav", work / "demucs instrumental.wav"
-        separate(song, tmp_vocals, tmp_music, model_name=args.demucs_model, device=args.device)
+        separate(original, tmp_vocals, tmp_music, model_name=args.demucs_model, device=args.device)
         free_memory()  # hand the vocal model's memory back before Whisper loads
         for tmp, final, keep_yours in ((tmp_vocals, work / VOCALS, vocals), (tmp_music, work / MUSIC, backing)):
             if keep_yours:
@@ -221,7 +194,8 @@ def cmd_build(args) -> list[Path]:
     style = Style(sung=args.sung_color, unsung=args.unsung_color, text_size=args.text_size, font=args.font)
     cdg = build_cdg(lines, duration, title=title if args.title_screen else "", artist=artist if args.title_screen else "", style=style)
 
-    out_dir = Path(args.out_dir).resolve() if args.out_dir else (Path(info["source"]).parent if info.get("source") else work.parent)
+    folder = info.get("folder") or (str(Path(info["source"]).parent) if info.get("source") else None)
+    out_dir = Path(args.out_dir).resolve() if args.out_dir else (Path(folder) if folder else work.parent)
     out_dir.mkdir(parents=True, exist_ok=True)
     base = safe_filename(f"{artist} - {title}" if artist else title or work.name)
     inputs = {Path(p).resolve() for p in (info.get("source"), info.get("backing"), info.get("vocals")) if p}
@@ -246,6 +220,72 @@ def cmd_build(args) -> list[Path]:
     if args.clean:
         shutil.rmtree(work)
     return outputs
+
+
+def edit(path: Path) -> None:
+    """Open the lyrics for checking and wait until the editor is closed."""
+    import os
+    import subprocess
+
+    if os.name == "nt":
+        subprocess.run(["notepad.exe", str(path)])
+    else:
+        input(f"Check {path}, then press Enter...")
+
+
+def cmd_batch(args) -> None:
+    """What Make Karaoke.bat runs: any mix of songs and their split files.
+    The slow part runs for every song first, so it can be left; then each
+    song's lyrics open in turn for checking before its files are made."""
+    import traceback
+
+    songs: dict[Path, Song] = {}
+    for f in args.files:
+        path = Path(f).resolve()
+        if not path.is_file():
+            print(f"Skipping {path.name}: not a file.")
+            continue
+        song = find_song(path)
+        if song is None:
+            print(f"Skipping {path.name}: it's already a finished karaoke track.")
+        elif song.work not in songs:
+            songs[song.work] = song
+
+    failed: list[str] = []
+    ready: list[Path] = []
+    for song in songs.values():
+        print(f"\n=== {song.name} ===", flush=True)
+        try:
+            ready.append(prepare_song(song, args))
+        except SystemExit as e:
+            print(e.code)
+            failed.append(song.name)
+        except Exception:
+            traceback.print_exc()
+            failed.append(song.name)
+
+    made: list[str] = []
+    for work in ready:
+        name = work.name[: -len(WORK_SUFFIX)]
+        print(f"\n=== {name}: check the lyrics in Notepad, then save and close it ===", flush=True)
+        edit(work / LYRICS)
+        args.work = str(work)
+        try:
+            cmd_build(args)
+            made.append(name)
+        except SystemExit as e:
+            print(e.code)
+            failed.append(name)
+        except Exception:
+            traceback.print_exc()
+            failed.append(name)
+
+    print()
+    if made:
+        print(f"Made {len(made)} karaoke track{'s' if len(made) != 1 else ''}: the MP3 and CDG files are next to the songs.")
+    if failed:
+        print("These didn't work, see the messages above: " + "; ".join(failed))
+        sys.exit(1)
 
 
 def cmd_make(args) -> None:
@@ -278,17 +318,20 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="karaoke-maker", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="command", required=True)
 
-    def prepare_opts(sp):
-        sp.add_argument("song", help="MP4, MP3 or any audio/video file of the song with vocals")
-        sp.add_argument("--work", help="folder for the in-between files (default: next to the song)")
-        sp.add_argument("--backing", help="a backing track (vocals removed) from another program, e.g. lalal.ai, to use as the karaoke audio")
-        sp.add_argument("--vocals", help="the vocals on their own from another program, e.g. lalal.ai, to time the lyrics from")
-        sp.add_argument("--lyrics", help="a text file of the lyrics, one sung line per line, to use instead of the recognised words")
+    def listening_opts(sp):
         sp.add_argument("--whisper-model", default="turbo", help="Whisper model: turbo (default), large-v3 (slower, needs more memory), small (fastest)")
         sp.add_argument("--language", help="the song's language code, e.g. en (default: detect)")
         sp.add_argument("--demucs-model", default="htdemucs", help="htdemucs (default) or htdemucs_ft (cleaner, 4x slower)")
         sp.add_argument("--device", default="auto", help="cuda (NVIDIA graphics card), cpu, or auto")
         sp.add_argument("--redo", action="store_true", help="start again even if earlier steps are done")
+
+    def prepare_opts(sp):
+        sp.add_argument("song", help="the song with vocals (MP4, MP3...), or one of its lalal.ai files")
+        sp.add_argument("--work", help="folder for the in-between files (default: next to the song)")
+        sp.add_argument("--backing", help="a backing track (vocals removed) from another program, e.g. lalal.ai, to use as the karaoke audio")
+        sp.add_argument("--vocals", help="the vocals on their own from another program, e.g. lalal.ai, to time the lyrics from")
+        sp.add_argument("--lyrics", help="a text file of the lyrics, one sung line per line, to use instead of the recognised words")
+        listening_opts(sp)
 
     def build_opts(sp):
         sp.add_argument("--out-dir", help="where to save the MP3+CDG (default: next to the song)")
@@ -315,6 +358,13 @@ def main(argv: list[str] | None = None) -> None:
     prepare_opts(sp)
     build_opts(sp)
     sp.set_defaults(func=cmd_make)
+
+    sp = sub.add_parser("batch", help="prepare, check and build any number of songs (what Make Karaoke.bat runs)")
+    sp.add_argument("files", nargs="+", help="songs and/or their lalal.ai files, in any mix")
+    listening_opts(sp)
+    sp.add_argument("--lyrics", help=argparse.SUPPRESS)
+    build_opts(sp)
+    sp.set_defaults(func=cmd_batch)
 
     sp = sub.add_parser("preview", help="save a picture of a CDG screen")
     sp.add_argument("cdg")
