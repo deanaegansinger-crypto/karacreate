@@ -1,5 +1,5 @@
-# Karaoke Maker needs Python 3.10-3.13 (3.12 recommended). Install.bat installs these for you.
-demucs==4.0.1
+# Karaoke Maker needs Python 3.10-3.13 (3.13 recommended; 3.14 and newer don't work yet). Install.bat installs these for you.
+demucs>=4.1
 whisperx>=3.4
 pillow>=10.1
 numpy

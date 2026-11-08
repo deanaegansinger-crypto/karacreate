@@ -27,8 +27,10 @@ For private use with songs you own or have permission to use.
 
 ## Setting up (once)
 
-1. Install **Python 3.12** from [python.org](https://www.python.org/downloads/windows/).
-   On the first screen, tick "Add python.exe to PATH".
+1. You need **Python 3.13**. Newer versions (3.14, 3.15) are missing parts
+   the AI tools need. If you don't have 3.13, `Install.bat` offers to
+   install it for you. It sits alongside any other Python, so there's no need
+   to remove a newer one.
 2. Double-click **`Install.bat`** in this folder. It downloads the AI tools
    and the word-recognition models (about 5 GB in all). If you have an
    NVIDIA graphics card it installs the faster graphics-card version.
