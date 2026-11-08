@@ -4,3 +4,4 @@ whisperx>=3.4
 pillow>=10.1
 numpy
 imageio-ffmpeg
+tkinterdnd2

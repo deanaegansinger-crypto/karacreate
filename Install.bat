@@ -48,7 +48,9 @@ echo.
 echo Downloading the word-recognition models now, about 2 GB, so the first song does not wait...
 "%VPY%" -m karaoke_maker download-models || goto failed
 echo.
-echo All set. Drag a song onto "Make Karaoke.bat" to make a karaoke track.
+call "%~dp0Create Desktop Shortcut.bat" nopause
+echo.
+echo All set. Open "Karaoke Maker" from your desktop to make karaoke tracks.
 pause
 exit /b 0
 

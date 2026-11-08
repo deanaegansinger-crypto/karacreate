@@ -43,8 +43,8 @@ For private use with songs you own or have permission to use.
 Karaoke Maker works on files you already have. It doesn't download anything.
 Save songs with your downloader as usual, for example RealTimes in
 RealPlayer, as MP4 or MP3. Split them with lalal.ai into the same folder,
-then drag the song onto `Make Karaoke.bat`. Either
-format works, so there's no need to convert MP4s first.
+then drag them into Karaoke Maker. Either format works, so there's no need
+to convert MP4s first.
 
 ## Splitting songs with lalal.ai
 
@@ -65,7 +65,7 @@ Mustang Sally_no_vocals_split_by_lalalai.mp3
 Mustang Sally_vocals_split_by_lalalai.mp3
 ```
 
-Then drag any of them onto `Make Karaoke.bat`, or all three: each song is
+Then drag any of them into Karaoke Maker, or all three: each song is
 only done once. Files are matched by name. lalal.ai shortens long names
 ("...Cover by B._vocals_split_by_lalalai.mp3"), which is fine.
 
@@ -79,25 +79,39 @@ lalal.ai file was trimmed at the start, the lyrics will be out of time,
 and Karaoke Maker warns you if the lengths differ.
 
 If you add lalal.ai files after already making a song with Karaoke Maker's
-own vocal removal, just drag the song on again: it picks up the new files.
+own vocal removal, just add the song again: it picks up the new files.
 
 ## Making a karaoke track
 
-1. Drag one or more songs onto **`Make Karaoke.bat`**: the song, its lalal.ai
-   files, or all of them, for as many songs as you like.
-2. Wait while it finds the words. With lalal.ai files, a 4-minute song takes
-   roughly 3-8 minutes on a laptop without a graphics card. Without them,
-   Karaoke Maker removes the vocals too, which adds another 3-6 minutes.
-   With an NVIDIA graphics card it takes about a minute. Close other
-   programs first if your PC has 8 GB of memory: it needs about 3-4 GB.
-3. Notepad opens with the lyrics. Fix any wrong words and check the
-   title and artist at the top. Then save and close Notepad.
-4. The MP3 and CDG appear next to the song, named `Artist - Title`. If
-   that's already your song's own name, `(Karaoke)` is added so it's never
-   overwritten. If you need to fix the lyrics
-   again, edit `lyrics.txt` in the song's `(karaoke work)` folder and drag
-   the song onto `Make Karaoke.bat` again. The slow steps are skipped the
-   second time.
+1. Open **Karaoke Maker** from your desktop. `Install.bat` puts the shortcut
+   there; if it's missing, double-click `Create Desktop Shortcut.bat`.
+2. Drag songs into the window: the song, its lalal.ai files, or all of
+   them, for as many songs as you like. You can also use **Add songs...**.
+3. Press **Start**. With lalal.ai files, a 4-minute song takes roughly 3-8
+   minutes on a laptop without a graphics card. Without them, Karaoke Maker
+   removes the vocals too, which adds another 3-6 minutes. Messages show in
+   the box at the bottom.
+4. When a song's lyrics are ready, a window opens to check them:
+   - check the **Title** and **Artist**: the files are named after them
+   - fix any wrong words (**Play the song** opens it in your player)
+   - press **Make karaoke files**. **Later** keeps your changes for another
+     time: double-click the song to come back to it.
+5. When the song says **Done**, **Open folder** shows the files, saved next to
+   the song:
+   - `Artist - Title.mp3` and `Artist - Title.cdg`: the karaoke track for
+     EZtiger or any karaoke player. The CDG is the lyric screen; on its own,
+     Windows can't play it.
+   - `Artist - Title.mp4`: the same as a video, which plays anywhere. Untick
+     **Also make an MP4 video** if you don't need it.
+
+If the name is already your song's own name, `(Karaoke)` is added so it's
+never overwritten. To fix the lyrics later, add the song again,
+double-click it and press **Make karaoke files**: the slow steps aren't
+repeated.
+
+`Make Karaoke.bat` still works too. Drag files onto it and the lyrics open in
+Notepad instead. The MP3, CDG and MP4 are made after you save and close
+Notepad.
 
 Tips for `lyrics.txt`:
 
@@ -115,6 +129,7 @@ python -m karaoke_maker prepare "Song.mp4"          # steps 1-2, writes lyrics.t
 python -m karaoke_maker build "Song (karaoke work)"   # step 4
 python -m karaoke_maker make "Song.mp4" --lyrics lyrics.txt   # all in one go
 python -m karaoke_maker preview "Artist - Title.cdg" --at 42  # picture of the screen
+python -m karaoke_maker.gui                                    # the window
 ```
 
 Useful options:
@@ -127,6 +142,7 @@ Useful options:
 | `--unsung-color "#ffffff"` | the colour of words still to sing (default white) |
 | `--no-title-screen` | skip the title and artist at the start |
 | `--lrc` | also save an `.lrc` timed-lyrics file |
+| `--no-mp4` | skip the MP4 video |
 | `--whisper-model large-v3` | slightly better word recognition: slower, needs 16 GB of memory without a graphics card |
 | `--whisper-model small` | fastest, least accurate word recognition |
 | `--demucs-model htdemucs_ft` | cleaner vocal removal, 4x slower |

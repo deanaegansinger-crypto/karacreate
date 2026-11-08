@@ -55,6 +55,20 @@ def safe_filename(name: str) -> str:
     return re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", name).strip(" .") or "karaoke"
 
 
+def write_lyrics_file(path: Path, title: str, artist: str, lines: list[str]) -> None:
+    body = "\n".join(lines).strip("\n")
+    path.write_text(f"{LYRICS_HELP}# Title: {title}\n# Artist: {artist}\n\n{body}\n", encoding="utf-8")
+
+
+def read_lyrics_file(path: Path) -> tuple[str, str, list[str]]:
+    """Title, artist and the lyric lines (blank lines kept, notes dropped)."""
+    header = read_header(path)
+    lines = [l.rstrip() for l in path.read_text(encoding="utf-8-sig").splitlines() if not l.lstrip().startswith("#")]
+    while lines and not lines[0]:
+        lines.pop(0)
+    return header.get("title", ""), header.get("artist", ""), lines
+
+
 def read_header(lyrics_path: Path) -> dict[str, str]:
     """'# Title: ...' and '# Artist: ...' lines at the top of lyrics.txt."""
     out = {}
@@ -168,7 +182,7 @@ def prepare_song(song: Song, args) -> Path:
         return work
     else:
         body = "\n".join(draft_lines(words))
-    lyrics_path.write_text(f"{LYRICS_HELP}# Title: {title}\n# Artist: {artist}\n\n{body}\n", encoding="utf-8")
+    write_lyrics_file(lyrics_path, title, artist, body.splitlines())
     print(f"Lyrics to check: {lyrics_path}")
     return work
 
@@ -199,9 +213,9 @@ def cmd_build(args) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     base = safe_filename(f"{artist} - {title}" if artist else title or work.name)
     inputs = {Path(p).resolve() for p in (info.get("source"), info.get("backing"), info.get("vocals")) if p}
-    if (out_dir / f"{base}.mp3").resolve() in inputs:
+    if any((out_dir / f"{base}.{ext}").resolve() in inputs for ext in ("mp3", "mp4", "cdg")):
         base += " (Karaoke)"  # never write over the song you started from
-    mp3, cdg_path, lrc = (out_dir / f"{base}.{ext}" for ext in ("mp3", "cdg", "lrc"))
+    mp3, cdg_path, lrc, mp4 = (out_dir / f"{base}.{ext}" for ext in ("mp3", "cdg", "lrc", "mp4"))
     print("Making the MP3...", flush=True)
     backing = info.get("backing")
     if backing and Path(backing).suffix.lower() == ".mp3" and Path(backing).is_file():
@@ -211,6 +225,12 @@ def cmd_build(args) -> list[Path]:
         save_mp3(work / MUSIC, mp3, title=title, artist=artist)
     cdg_path.write_bytes(cdg)
     outputs = [mp3, cdg_path]
+    if args.mp4:
+        from .video import render_mp4
+
+        print("Making the MP4 video...", flush=True)
+        render_mp4(cdg, mp3, mp4, title=title, artist=artist)
+        outputs.append(mp4)
     if args.lrc:
         write_lrc(lrc, lines, title, artist)
         outputs.append(lrc)
@@ -315,6 +335,16 @@ def cmd_download_models(args) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    args = make_parser().parse_args(argv)
+    args.func(args)
+
+
+def default_options() -> argparse.Namespace:
+    """Every option at its default, for the window to start from."""
+    return make_parser().parse_args(["batch", "-"])
+
+
+def make_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="karaoke-maker", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -343,6 +373,7 @@ def main(argv: list[str] | None = None) -> None:
         sp.add_argument("--font", help="a .ttf font file (default: Arial Bold)")
         sp.add_argument("--no-title-screen", dest="title_screen", action="store_false", help="don't show the title at the start")
         sp.add_argument("--lrc", action="store_true", help="also save an .lrc timed-lyrics file")
+        sp.add_argument("--no-mp4", dest="mp4", action="store_false", help="don't make the MP4 video (MP3+CDG only)")
         sp.add_argument("--clean", action="store_true", help="delete the work folder afterwards")
 
     sp = sub.add_parser("prepare", help="remove vocals and find the words")
@@ -377,8 +408,7 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--language", default="en")
     sp.set_defaults(func=cmd_download_models)
 
-    args = p.parse_args(argv)
-    args.func(args)
+    return p
 
 
 if __name__ == "__main__":
