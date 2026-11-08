@@ -96,8 +96,11 @@ own vocal removal, just add the song again: it picks up the new files.
    - fix any wrong words (**Play the song** opens it in your player)
    - press **Make karaoke files**. **Later** keeps your changes for another
      time: double-click the song to come back to it.
-5. When the song says **Done**, **Open folder** shows the files, saved next to
-   the song:
+5. When the song says **Done**, **Open folder** shows the files. They're
+   saved next to the song unless you pick a folder under **Save files to**:
+   **Choose...** an existing folder, **New folder...** to make one (inside
+   the current save folder), or **Next to songs** to go back. The choice is
+   remembered. The files are:
    - `Artist - Title.mp3` and `Artist - Title.cdg`: the karaoke track for
      EZtiger or any karaoke player. The CDG is the lyric screen; on its own,
      Windows can't play it.

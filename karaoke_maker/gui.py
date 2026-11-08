@@ -18,7 +18,7 @@ import traceback
 from pathlib import Path
 
 import tkinter as tk
-from tkinter import colorchooser, filedialog, messagebox, ttk
+from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 from tkinter.scrolledtext import ScrolledText
 
 from .cli import LYRICS, WORK_SUFFIX, cmd_build, default_options, prepare_song, read_lyrics_file, write_lyrics_file
@@ -210,9 +210,17 @@ class App:
         # Options
         opts = ttk.LabelFrame(root, text="Karaoke screen and files", padding=(10, 6))
         opts.pack(fill="x", padx=12, pady=(4, 6))
-        row1, row2 = ttk.Frame(opts), ttk.Frame(opts)
+        row1, row2, row3 = ttk.Frame(opts), ttk.Frame(opts), ttk.Frame(opts)
         row1.pack(fill="x")
         row2.pack(fill="x", pady=(6, 0))
+        row3.pack(fill="x", pady=(6, 0))
+        ttk.Label(row3, text="Save files to").pack(side="left")
+        self.save_var = tk.StringVar()
+        ttk.Entry(row3, textvariable=self.save_var, state="readonly").pack(side="left", fill="x", expand=True, padx=6)
+        ttk.Button(row3, text="Choose...", command=self.choose_save_folder).pack(side="left")
+        ttk.Button(row3, text="New folder...", command=self.new_save_folder).pack(side="left", padx=6)
+        ttk.Button(row3, text="Next to songs", command=lambda: self.set_save_folder(None)).pack(side="left")
+        self.show_save_folder()
         ttk.Label(row1, text="Text size").pack(side="left")
         self.size_var = tk.StringVar(value=TEXT_SIZES[self.options.text_size])
         size = ttk.Combobox(row1, textvariable=self.size_var, values=list(TEXT_SIZES.values()), state="readonly", width=15)
@@ -273,7 +281,7 @@ class App:
             saved = json.loads(SETTINGS.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return
-        for key in ("text_size", "sung_color", "title_screen", "lrc", "mp4", "language"):
+        for key in ("text_size", "sung_color", "title_screen", "lrc", "mp4", "language", "out_dir"):
             if key in saved:
                 setattr(self.options, key, saved[key])
 
@@ -283,11 +291,54 @@ class App:
         self.options.lrc = self.lrc_var.get()
         self.options.mp4 = self.mp4_var.get()
         self.options.language = next(k for k, v in LANGUAGES.items() if v == self.lang_var.get()) or None
-        saved = {k: getattr(self.options, k) for k in ("text_size", "sung_color", "title_screen", "lrc", "mp4", "language")}
+        saved = {k: getattr(self.options, k) for k in ("text_size", "sung_color", "title_screen", "lrc", "mp4", "language", "out_dir")}
         try:
             SETTINGS.write_text(json.dumps(saved, indent=1), encoding="utf-8")
         except OSError:
             pass
+
+    def show_save_folder(self) -> None:
+        folder = self.options.out_dir
+        self.save_var.set(folder if folder else "Next to each song")
+
+    def set_save_folder(self, folder: str | None) -> None:
+        self.options.out_dir = folder
+        self.show_save_folder()
+        self.options_changed()
+        if folder:
+            self.log(f"Finished files will be saved in {folder}\n")
+        else:
+            self.log("Finished files will be saved next to each song.\n")
+
+    def choose_save_folder(self) -> None:
+        folder = filedialog.askdirectory(parent=self.root, title="Save the karaoke files in...",
+                                         initialdir=self.options.out_dir or str(Path.home()), mustexist=True)
+        if folder:
+            self.set_save_folder(str(Path(folder)))
+
+    def new_save_folder(self) -> None:
+        """Make a new folder (inside the save folder, or one picked) and
+        save there from now on."""
+        parent = self.options.out_dir
+        if not parent or not Path(parent).is_dir():
+            parent = filedialog.askdirectory(parent=self.root, title="Where should the new folder go?",
+                                             initialdir=str(Path.home()), mustexist=True)
+            if not parent:
+                return
+        name = simpledialog.askstring("New folder", f"Name for the new folder in\n{parent}:", parent=self.root)
+        name = (name or "").strip().strip(".")
+        if not name:
+            return
+        if any(c in name for c in '<>:"/\\|?*'):
+            messagebox.showerror("New folder", 'A folder name can\'t contain any of  < > : " / \\ | ? *', parent=self.root)
+            return
+        folder = Path(parent) / name
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            messagebox.showerror("New folder", f"Couldn't make the folder:\n{e}", parent=self.root)
+            return
+        self.set_save_folder(str(folder))
 
     def show_color(self) -> None:
         self.swatch.configure(background=self.options.sung_color)
