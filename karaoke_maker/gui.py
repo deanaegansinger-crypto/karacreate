@@ -161,6 +161,7 @@ class App:
         self.editor: LyricsEditor | None = None
         self.busy = False
         self.options = default_options()
+        self.last_folder: str | None = None
         self.load_settings()
 
         root.title("Karaoke Maker")
@@ -177,6 +178,7 @@ class App:
         hint = "Drag songs and their lalal.ai files in here" if dnd else "Add songs and their lalal.ai files"
         ttk.Label(head, text=hint, font=("Segoe UI", 11, "bold")).pack(side="left")
         ttk.Button(head, text="Add songs...", command=self.choose_files).pack(side="right")
+        ttk.Button(head, text="Add from Downloads...", command=lambda: self.choose_files(downloads_folder())).pack(side="right", padx=6)
 
         table = ttk.Frame(root, padding=(12, 0))
         table.pack(fill="both", expand=True)
@@ -284,6 +286,7 @@ class App:
         for key in ("text_size", "sung_color", "title_screen", "lrc", "mp4", "language", "out_dir"):
             if key in saved:
                 setattr(self.options, key, saved[key])
+        self.last_folder = saved.get("last_folder")
 
     def options_changed(self) -> None:
         self.options.text_size = next(k for k, v in TEXT_SIZES.items() if v == self.size_var.get())
@@ -292,6 +295,7 @@ class App:
         self.options.mp4 = self.mp4_var.get()
         self.options.language = next(k for k, v in LANGUAGES.items() if v == self.lang_var.get()) or None
         saved = {k: getattr(self.options, k) for k in ("text_size", "sung_color", "title_screen", "lrc", "mp4", "language", "out_dir")}
+        saved["last_folder"] = self.last_folder
         try:
             SETTINGS.write_text(json.dumps(saved, indent=1), encoding="utf-8")
         except OSError:
@@ -351,10 +355,15 @@ class App:
             self.options_changed()
 
     # ---------------------------------------------------------- songs
-    def choose_files(self) -> None:
+    def choose_files(self, folder: Path | None = None) -> None:
+        """Pick songs: in folder, or where songs were last picked from."""
+        start = folder or (Path(self.last_folder) if self.last_folder else downloads_folder())
         exts = " ".join(f"*{e}" for e in sorted(AUDIO_EXTS))
         paths = filedialog.askopenfilenames(parent=self.root, title="Choose songs and their lalal.ai files",
-                                            filetypes=[("Songs", exts), ("All files", "*.*")])
+                                            initialdir=str(start), filetypes=[("Songs", exts), ("All files", "*.*")])
+        if paths:
+            self.last_folder = str(Path(paths[0]).parent)
+            self.options_changed()
         self.add_files(paths)
 
     def add_files(self, paths) -> None:
@@ -499,6 +508,33 @@ class App:
             return
         self.root.destroy()
         os._exit(0)  # don't wait for a song in progress
+
+
+def downloads_folder() -> Path:
+    """The Downloads folder, even if it's been moved (say to another drive
+    or into OneDrive)."""
+    if os.name == "nt":
+        try:
+            import ctypes
+            import uuid
+            from ctypes import wintypes
+
+            class GUID(ctypes.Structure):
+                _fields_ = [("Data1", wintypes.DWORD), ("Data2", wintypes.WORD),
+                            ("Data3", wintypes.WORD), ("Data4", ctypes.c_ubyte * 8)]
+
+            g = uuid.UUID("{374DE290-123F-4565-9164-39C4925E467B}")  # FOLDERID_Downloads
+            guid = GUID(g.fields[0], g.fields[1], g.fields[2], (ctypes.c_ubyte * 8)(*g.bytes[8:]))
+            path = ctypes.c_wchar_p()
+            if ctypes.windll.shell32.SHGetKnownFolderPath(ctypes.byref(guid), 0, None, ctypes.byref(path)) == 0:
+                found = Path(path.value)
+                ctypes.windll.ole32.CoTaskMemFree(path)
+                if found.is_dir():
+                    return found
+        except Exception:
+            pass
+    downloads = Path.home() / "Downloads"
+    return downloads if downloads.is_dir() else Path.home()
 
 
 def missing_parts() -> list[str]:

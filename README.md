@@ -86,7 +86,9 @@ own vocal removal, just add the song again: it picks up the new files.
 1. Open **Karaoke Maker** from your desktop. `Install.bat` puts the shortcut
    there; if it's missing, double-click `Create Desktop Shortcut.bat`.
 2. Drag songs into the window: the song, its lalal.ai files, or all of
-   them, for as many songs as you like. You can also use **Add songs...**.
+   them, for as many songs as you like. Or use **Add from Downloads...**,
+   which opens your Downloads folder, or **Add songs...**, which opens
+   wherever you last picked songs from.
 3. Press **Start**. With lalal.ai files, a 4-minute song takes roughly 3-8
    minutes on a laptop without a graphics card. Without them, Karaoke Maker
    removes the vocals too, which adds another 3-6 minutes. Messages show in
