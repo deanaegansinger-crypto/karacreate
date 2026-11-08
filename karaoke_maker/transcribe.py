@@ -22,7 +22,8 @@ def transcribe(vocals: Path, model_name: str = "turbo", language: str | None = N
 
     # pyannote's own audio decoder isn't used (the audio is passed in
     # already decoded), so its warning about it isn't wanted.
-    warnings.filterwarnings("ignore", message=".*torchcodec.*")
+    warnings.filterwarnings("ignore", message=r"(?s).*torchcodec")
+    warnings.filterwarnings("ignore", category=UserWarning, module=r"pyannote\.audio\.core\.io")
     import whisperx
 
     device = pick_device(device)
