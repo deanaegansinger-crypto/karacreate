@@ -249,7 +249,16 @@ class App:
 
         root.protocol("WM_DELETE_WINDOW", self.quit)
         self.update_buttons()
-        self.log("Karaoke Maker is ready. Add songs, then press Start.\n")
+        missing = missing_parts()
+        if missing:
+            message = (f"Karaoke Maker's setup in {HERE} isn't finished: {', '.join(missing)} "
+                       f"{'is' if len(missing) == 1 else 'are'} missing.\n\n"
+                       f"Close this window, double-click Install.bat in that folder and let it run until it says "
+                       f"\"All set\". Then open Karaoke Maker again.")
+            self.log(message + f"\n(Python: {sys.executable})\n")
+            root.after(300, lambda: messagebox.showwarning("Karaoke Maker", message, parent=root))
+        else:
+            self.log("Karaoke Maker is ready. Add songs, then press Start.\n")
         root.after(100, self.poll)
 
     # ---------------------------------------------------------- settings
@@ -439,6 +448,16 @@ class App:
             return
         self.root.destroy()
         os._exit(0)  # don't wait for a song in progress
+
+
+def missing_parts() -> list[str]:
+    """Parts Install.bat should have installed but didn't (say it was
+    closed before it finished)."""
+    import importlib.util
+
+    parts = {"numpy": "numpy", "PIL": "pillow", "torch": "torch", "whisperx": "whisperx",
+             "demucs": "demucs", "imageio_ffmpeg": "imageio-ffmpeg"}
+    return [name for module, name in parts.items() if importlib.util.find_spec(module) is None]
 
 
 def describe(song: Song) -> str:
