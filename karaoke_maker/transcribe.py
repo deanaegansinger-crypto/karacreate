@@ -15,6 +15,9 @@ def transcribe(vocals: Path, model_name: str = "turbo", language: str | None = N
     each word to the moment it's sung. Running it on the vocals alone,
     rather than the full mix, makes both steps far more accurate.
     """
+    from .models import avoid_symlinks
+
+    avoid_symlinks()
     import whisperx
 
     device = pick_device(device)

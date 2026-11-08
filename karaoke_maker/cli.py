@@ -268,6 +268,12 @@ def cmd_preview(args) -> None:
     print(out)
 
 
+def cmd_download_models(args) -> None:
+    from .models import download
+
+    download(args.whisper_model, args.language)
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="karaoke-maker", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="command", required=True)
@@ -315,6 +321,11 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--at", type=float, required=True, help="time in seconds")
     sp.add_argument("-o", "--output", help="PNG to write")
     sp.set_defaults(func=cmd_preview)
+
+    sp = sub.add_parser("download-models", help="fetch the AI models now (Install.bat does this)")
+    sp.add_argument("--whisper-model", default="turbo")
+    sp.add_argument("--language", default="en")
+    sp.set_defaults(func=cmd_download_models)
 
     args = p.parse_args(argv)
     args.func(args)

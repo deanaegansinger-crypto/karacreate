@@ -4,6 +4,7 @@ title Karaoke Maker
 set "HERE=%~dp0"
 set "PY=%HERE%.venv\Scripts\python.exe"
 set "PYTHONPATH=%HERE%"
+echo "%~dp0" | find /i "\AppData\Local\Temp\" >nul && goto inzip
 if not exist "%PY%" goto noinstall
 if "%~1"=="" goto nofile
 
@@ -28,6 +29,13 @@ echo.
 echo All done. The MP3 and CDG files are next to your songs.
 pause
 exit /b 0
+
+:inzip
+echo This is running from inside the zip file. Extract the zip first ^(right-click it,
+echo "Extract All..."^), run Install.bat in the extracted folder, then use the
+echo "Make Karaoke.bat" there.
+pause
+exit /b 1
 
 :noinstall
 echo Run Install.bat first.

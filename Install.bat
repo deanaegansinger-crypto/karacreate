@@ -3,6 +3,10 @@ setlocal
 cd /d "%~dp0"
 title Karaoke Maker setup
 
+rem Opened from inside the zip, Windows runs this from a temporary copy that
+rem gets deleted, along with everything installed there.
+echo "%~dp0" | find /i "\AppData\Local\Temp\" >nul && goto inzip
+
 echo Setting up Karaoke Maker.
 echo This downloads the AI tools and models, about 5 GB, and can take 15-30 minutes.
 echo.
@@ -42,8 +46,7 @@ echo NVIDIA graphics card found: installing the faster graphics-card version.
 
 echo.
 echo Downloading the word-recognition models now, about 2 GB, so the first song does not wait...
-"%VPY%" -c "from faster_whisper import WhisperModel; WhisperModel('turbo', device='cpu', compute_type='int8')" || goto failed
-"%VPY%" -c "import whisperx; whisperx.load_align_model('en', 'cpu')" || goto failed
+"%VPY%" -m karaoke_maker download-models || goto failed
 echo.
 echo All set. Drag a song onto "Make Karaoke.bat" to make a karaoke track.
 pause
@@ -70,6 +73,16 @@ echo.
 echo Please install Python 3.13 from https://www.python.org/downloads/windows/
 echo (scroll down to the latest "Python 3.13" release and pick "Windows installer (64-bit)"),
 echo then run Install.bat again.
+pause
+exit /b 1
+
+:inzip
+echo This is running from inside the zip file, so nothing would be kept.
+echo.
+echo 1. Close this window.
+echo 2. Right-click the karacreate zip and choose "Extract All...".
+echo 3. Pick a folder to keep it in, such as Documents, and click Extract.
+echo 4. In the extracted karacreate folder, double-click Install.bat.
 pause
 exit /b 1
 

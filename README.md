@@ -31,7 +31,10 @@ For private use with songs you own or have permission to use.
    the AI tools need. If you don't have 3.13, `Install.bat` offers to
    install it for you. It sits alongside any other Python, so there's no need
    to remove a newer one.
-2. Double-click **`Install.bat`** in this folder. It downloads the AI tools
+2. If you downloaded a zip, extract it first: right-click it, choose
+   **Extract All...**, and pick a folder to keep it in. Running it from inside
+   the zip doesn't work, because Windows deletes that copy afterwards.
+3. Double-click **`Install.bat`** in the extracted folder. It downloads the AI tools
    and the word-recognition models (about 5 GB in all). If you have an
    NVIDIA graphics card it installs the faster graphics-card version.
 
