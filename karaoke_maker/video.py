@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .audio import ffmpeg_exe
+from .audio import NO_WINDOW, ffmpeg_exe
 from .cdg import HEIGHT, PACKETS_PER_SECOND, PACKET_SIZE, WIDTH, CdgDecoder
 
 FPS = 25
@@ -37,7 +37,7 @@ def render_mp4(cdg: bytes, audio: Path, dest: Path, title: str = "", artist: str
     if artist:
         cmd += ["-metadata", f"artist={artist}"]
     cmd.append(str(dest))
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE, **NO_WINDOW)
     try:
         for i in range(frames):
             decoder.seek(i / FPS)

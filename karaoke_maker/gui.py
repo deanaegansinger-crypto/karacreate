@@ -557,7 +557,25 @@ def describe(song: Song) -> str:
     return "Song only (vocals removed here)"
 
 
+def hide_console_windows() -> None:
+    """The window has no console, so on Windows any program started from it
+    (FFmpeg, or one an AI library runs) would get a black console window of
+    its own. Start them all without one."""
+    if os.name != "nt":
+        return
+    import subprocess
+
+    original = subprocess.Popen.__init__
+
+    def init(self, *args, **kwargs):
+        kwargs.setdefault("creationflags", subprocess.CREATE_NO_WINDOW)
+        original(self, *args, **kwargs)
+
+    subprocess.Popen.__init__ = init
+
+
 def main() -> None:
+    hide_console_windows()
     try:
         try:
             from tkinterdnd2 import TkinterDnD

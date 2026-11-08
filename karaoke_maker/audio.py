@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -9,6 +10,11 @@ import wave
 from pathlib import Path
 
 import numpy as np
+
+
+# The window has no console, so on Windows each FFmpeg run would pop up a
+# black console window of its own. This stops it.
+NO_WINDOW = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
 
 
 def ffmpeg_exe() -> str:
@@ -30,7 +36,7 @@ def load_audio(path: Path, rate: int = 44100, channels: int = 2) -> np.ndarray:
         ffmpeg_exe(), "-nostdin", "-v", "error", "-i", str(path),
         "-vn", "-f", "f32le", "-ac", str(channels), "-ar", str(rate), "-",
     ]
-    result = subprocess.run(cmd, capture_output=True)
+    result = subprocess.run(cmd, capture_output=True, **NO_WINDOW)
     if result.returncode != 0:
         sys.exit(f"Couldn't read {path}:\n{result.stderr.decode(errors='replace')}")
     samples = np.frombuffer(result.stdout, dtype=np.float32)
@@ -62,7 +68,7 @@ def save_mp3(src: Path, dest: Path, title: str = "", artist: str = "", bitrate: 
     if artist:
         cmd += ["-metadata", f"artist={artist}"]
     cmd.append(str(dest))
-    result = subprocess.run(cmd, capture_output=True)
+    result = subprocess.run(cmd, capture_output=True, **NO_WINDOW)
     if result.returncode != 0:
         sys.exit(f"Couldn't write {dest}:\n{result.stderr.decode(errors='replace')}")
 
