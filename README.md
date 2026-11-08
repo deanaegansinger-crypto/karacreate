@@ -27,8 +27,11 @@ For private use with songs you own or have permission to use.
 
 ## Installing with the setup program (easiest)
 
-Download **KaraokeMaker-Setup.exe** from this repository's
-[Releases page](../../releases/latest) and run it. Nothing else is needed, so
+**[Download KaraokeMaker-Setup.exe](https://github.com/deanaegansinger-crypto/karacreate/releases/latest/download/KaraokeMaker-Setup.exe)**
+(Windows 10 or 11). That link always gives the newest version, so it's the
+one to share. You can also find it on the [Releases page](../../releases/latest).
+
+Run it. Nothing else is needed, so
 it's also the file to share with friends, for example by Dropbox or
 WhatsApp. **KaraokeMaker-Setup.zip** is the same file zipped, for apps that
 won't send an .exe.
