@@ -1,0 +1,88 @@
+name: Windows setup program
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test
+        run: |
+          pip install -r requirements-dev.txt
+          python -m pytest -q
+
+      # The newest Python 3.13 that python.org still has a Windows installer
+      # for (later 3.13 security releases come as source only).
+      - name: Get the Python 3.13 installer
+        shell: pwsh
+        run: |
+          $dirs = (Invoke-WebRequest https://www.python.org/ftp/python/ -UseBasicParsing).Links.href |
+            Where-Object { $_ -match '^3\.13\.\d+/$' } |
+            Sort-Object { [int]($_ -replace '^3\.13\.(\d+)/$', '$1') } -Descending
+          $found = $null
+          foreach ($d in $dirs) {
+            $v = $d.TrimEnd('/')
+            $url = "https://www.python.org/ftp/python/$v/python-$v-amd64.exe"
+            try { Invoke-WebRequest $url -Method Head -UseBasicParsing | Out-Null; $found = $v; break } catch { }
+          }
+          if (-not $found) { throw "No Python 3.13 Windows installer found on python.org" }
+          $file = Join-Path $env:RUNNER_TEMP "python-$found-amd64.exe"
+          Invoke-WebRequest "https://www.python.org/ftp/python/$found/python-$found-amd64.exe" -OutFile $file -UseBasicParsing
+          $sig = Get-AuthenticodeSignature $file
+          if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'Python Software Foundation') {
+            throw "The Python installer isn't signed by the Python Software Foundation: $($sig.Status) $($sig.SignerCertificate.Subject)"
+          }
+          "Python $found, signed by: $($sig.SignerCertificate.Subject)"
+          "PYTHON_INSTALLER=$file" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "PYTHON_VERSION=$found" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Make the setup program
+        shell: pwsh
+        working-directory: installer
+        run: |
+          $version = (Select-String -Path ..\karaoke_maker\__init__.py -Pattern '__version__ = "([0-9.]+)"').Matches[0].Groups[1].Value
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" "/DPythonInstaller=$env:PYTHON_INSTALLER" karaoke-maker.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
+          # A zipped copy too: some apps (WhatsApp, email) won't pass on an .exe.
+          Compress-Archive -Path Output\KaraokeMaker-Setup.exe -DestinationPath Output\KaraokeMaker-Setup.zip
+          Get-ChildItem Output | Format-Table Name, Length
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KaraokeMaker-Setup
+          path: |
+            installer/Output/KaraokeMaker-Setup.exe
+            installer/Output/KaraokeMaker-Setup.zip
+
+      - name: Publish the download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.APP_VERSION }}-build.${{ github.run_number }}
+          name: Karaoke Maker ${{ env.APP_VERSION }} (build ${{ github.run_number }})
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: |
+            installer/Output/KaraokeMaker-Setup.exe
+            installer/Output/KaraokeMaker-Setup.zip
+          body: |
+            **KaraokeMaker-Setup.exe** installs Karaoke Maker on a Windows 10 or 11 PC: no administrator needed. It includes Python ${{ env.PYTHON_VERSION }} for PCs that don't have it, then downloads the AI tools and models (about 5 GB, 15-30 minutes). **KaraokeMaker-Setup.zip** is the same, zipped, for apps that won't send an .exe (unzip it, then run the .exe).
+
+            Windows may say "Windows protected your PC" because the setup program isn't signed: click **More info**, then **Run anyway**.

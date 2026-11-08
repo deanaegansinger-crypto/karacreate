@@ -25,7 +25,30 @@ For private use with songs you own or have permission to use.
 4. **Making the files.** The MP3 and CDG are saved next to your song as
    `Artist - Title.mp3` and `Artist - Title.cdg`.
 
-## Setting up (once)
+## Installing with the setup program (easiest)
+
+Download **KaraokeMaker-Setup.exe** from this repository's
+[Releases page](../../releases/latest) and run it. Nothing else is needed, so
+it's also the file to share with friends, for example by Dropbox or
+WhatsApp. **KaraokeMaker-Setup.zip** is the same file zipped, for apps that
+won't send an .exe.
+
+- **No administrator needed.** It installs for the person running it, and
+  puts Karaoke Maker in the Start menu and on the desktop.
+- **Python 3.13 comes with it**, for PCs that don't have it.
+- **Then it downloads the AI tools and models**: about 5 GB, which takes
+  15-30 minutes. A black window shows the progress: leave it open until it
+  says "All set". You need about 8 GB of free disk space.
+- **"Windows protected your PC"** shows because the setup program isn't
+  signed: click **More info**, then **Run anyway**.
+- **If the download fails** (say the internet drops), run **Repair Karaoke
+  Maker** from the Start menu.
+
+A new setup program is built automatically each time the code on `main`
+changes. Running a newer one over an installed Karaoke Maker updates it,
+and only downloads what's new.
+
+## Setting up from the files (the other way)
 
 1. You need **Python 3.13**. Newer versions (3.14, 3.15) are missing parts
    the AI tools need. If you don't have 3.13, `Install.bat` offers to

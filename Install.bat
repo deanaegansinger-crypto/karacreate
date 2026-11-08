@@ -3,6 +3,11 @@ setlocal
 cd /d "%~dp0"
 title Karaoke Maker setup
 
+rem "Install.bat auto" is how KaraokeMaker-Setup.exe runs it: no questions,
+rem and the setup program makes the shortcuts itself.
+set "AUTO="
+if /i "%~1"=="auto" set "AUTO=1"
+
 rem Opened from inside the zip, Windows runs this from a temporary copy that
 rem gets deleted, along with everything installed there.
 echo "%~dp0" | find /i "\AppData\Local\Temp\" >nul && goto inzip
@@ -48,10 +53,15 @@ echo.
 echo Downloading the word-recognition models now, about 2 GB, so the first song does not wait...
 "%VPY%" -m karaoke_maker download-models || goto failed
 echo.
-call "%~dp0Create Desktop Shortcut.bat" nopause
+if not defined AUTO call "%~dp0Create Desktop Shortcut.bat" nopause
 echo.
 echo All set. Open "Karaoke Maker" from your desktop to make karaoke tracks.
-pause
+if defined AUTO (
+  echo This window closes by itself in a few seconds.
+  timeout /t 8 >nul
+) else (
+  pause
+)
 exit /b 0
 
 :nopython
@@ -62,6 +72,7 @@ echo.
 echo Python 3.14 and newer are too new for the AI tools Karaoke Maker uses.
 echo Python 3.13 can be installed alongside them: you don't need to remove anything.
 echo.
+if defined AUTO goto manualpython
 where winget >nul 2>nul || goto manualpython
 choice /c YN /m "Install Python 3.13 now"
 if errorlevel 2 goto manualpython
